@@ -441,14 +441,14 @@ void RTMP_QueryPacketInfo(
 	if (RTMP_GET_PKT_SG(pPacket)) {
 		struct sk_buff *skb = (struct sk_buff *)pPacket;
 		int i, nr_frags = skb_shinfo(skb)->nr_frags;
-		
+
 		info->BufferCount =  nr_frags + 1;
 		info->PhysicalBufferCount = info->BufferCount;
 		info->sg_list[0].data = (VOID *)GET_OS_PKT_DATAPTR(pPacket);
 		info->sg_list[0].len = skb_headlen(skb);
 		for (i = 0; i < nr_frags; i++) {
 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-			
+
 			info->sg_list[i+1].data = ((void *) page_address(frag->page) +
 									frag->page_offset);
 			info->sg_list[i+1].len = frag->size;
@@ -779,7 +779,7 @@ VOID RtmpOsSendWirelessEvent(
 
 #ifdef CONFIG_STA_SUPPORT
 INT32 ralinkrate[] = {
-	2,  4, 11, 22, 
+	2,  4, 11, 22,
 	12, 18, 24, 36, 48, 72, 96, 108, 109, 110, 111, 112, /* CCK and OFDM */
 	13, 26, 39, 52, 78, 104, 117, 130, 26, 52, 78, 104, 156, 208, 234, 260,
 	39, 78, 117, 156, 234, 312, 351, 390, /* BW 20, 800ns GI, MCS 0~23 */
@@ -798,7 +798,7 @@ INT32 ralinkrate[] = {
 	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
 	20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
 	40, 41, 42, 43, 44, 45, 46, 47 /* 3*3 */
-}; 
+};
 
 UINT32 RT_RateSize = sizeof (ralinkrate);
 
@@ -1090,14 +1090,26 @@ int RtmpOSFileRead(RTMP_OS_FD osfd, char *pDataPtr, int readLen)
 	if (osfd->f_op) {
 		return __vfs_read(osfd, pDataPtr, readLen, &osfd->f_pos);
 	} else {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 		DBGPRINT(RT_DEBUG_ERROR, ("no file read method\n"));
 		return -1;
+#else
+        DBGPRINT(RT_DEBUG_ERROR, ("no file read method, using kernel_read\n"));
+		return kernel_read(osfd, pDataPtr, readLen, &osfd->f_pos);
+#endif /*LINUX_VERSION_CODE */
 	}
 }
 
 int RtmpOSFileWrite(RTMP_OS_FD osfd, char *pDataPtr, int writeLen)
 {
-	return __vfs_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
+		return __vfs_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
+#else
+        DBGPRINT(RT_DEBUG_ERROR, ("no file write method, using kernel_write\n"));
+		return kernel_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
+#endif /*LINUX_VERSION_CODE */
+
 }
 
 static inline void __RtmpOSFSInfoChange(OS_FS_INFO * pOSFSInfo, BOOLEAN bSet)
@@ -1627,9 +1639,9 @@ PNET_DEV RtmpOSNetDevGetByName(PNET_DEV pNetDev, PSTRING pDevName)
 void RtmpOSNetDeviceRefPut(PNET_DEV pNetDev)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,0)
-	/* 
-	   every time dev_get_by_name is called, and it has returned a valid struct 
-	   net_device*, dev_put should be called afterwards, because otherwise the 
+	/*
+	   every time dev_get_by_name is called, and it has returned a valid struct
+	   net_device*, dev_put should be called afterwards, because otherwise the
 	   machine hangs when the device is unregistered (since dev->refcnt > 1).
 	 */
 	if (pNetDev)
@@ -1727,7 +1739,7 @@ int RtmpOSNetDevAttach(
 		pNetDev->ethtool_ops = &RALINK_Ethtool_Ops;
 #endif
 
-		/* if you don't implement get_stats, just leave the callback function as NULL, a dummy 
+		/* if you don't implement get_stats, just leave the callback function as NULL, a dummy
 		   function will make kernel panic.
 		 */
 		if (pDevOpHook->get_stats)
@@ -1923,7 +1935,7 @@ VOID RtmpDrvAllMacPrint(
 	os_alloc_mem(NULL, (UCHAR **)&msg, 1024);
 	if (!msg)
 		return;
-	
+
 	orig_fs = get_fs();
 	set_fs(KERNEL_DS);
 
@@ -1974,10 +1986,10 @@ VOID RtmpDrvAllE2PPrint(
 	os_alloc_mem(NULL, (UCHAR **)&msg, 1024);
 	if (!msg)
 		return;
-	
+
 	orig_fs = get_fs();
 	set_fs(KERNEL_DS);
-	
+
 	/* open file */
 	file_w = filp_open(fileName, O_WRONLY | O_CREAT, 0);
 	if (IS_ERR(file_w)) {
@@ -2019,7 +2031,7 @@ VOID RtmpDrvAllRFPrint(
 	PSTRING fileName = "RFDump.txt";
 	mm_segment_t orig_fs;
 	UINT32 macAddr = 0, macValue = 0;
-	
+
 	orig_fs = get_fs();
 	set_fs(KERNEL_DS);
 
@@ -2555,7 +2567,7 @@ VOID CFG80211OS_UnRegister(
 			Must unregister, or you will suffer problem when you change
 			regulatory domain by using iw.
 		*/
-		
+
 #ifdef RFKILL_HW_SUPPORT
 		wiphy_rfkill_stop_polling(pCfg80211_CB->pCfg80211_Wdev->wiphy);
 #endif /* RFKILL_HW_SUPPORT */
@@ -3502,7 +3514,7 @@ VOID RtmpOsInitCompletion(RTMP_OS_COMPLETION *pCompletion)
 	memset(pCompletion, 0x00, sizeof(RTMP_OS_COMPLETION));
 
 	RTMP_OS_Alloc_RscOnly(pCompletion, sizeof(struct completion));
-	
+
 	init_completion((struct completion *)(pCompletion->pContent));
 }
 
@@ -3740,7 +3752,7 @@ VOID RTMP_OS_Add_Timer(NDIS_MINIPORT_TIMER *pTimerOrg, ULONG timeout)
 
 		__RTMP_OS_Add_Timer(pTimer, timeout);
 	}
-} 
+}
 
 
 VOID RTMP_OS_Mod_Timer(NDIS_MINIPORT_TIMER *pTimerOrg, ULONG timeout)
@@ -4227,7 +4239,7 @@ Note:
 BOOLEAN RtmpOsAllocateLock(NDIS_SPIN_LOCK *pLock, LIST_HEADER *pLockList)
 {
 	memset(pLock, 0x00, sizeof(NDIS_SPIN_LOCK));
-	
+
 	if (RTMP_OS_Alloc_RscOnly(pLock, sizeof (OS_NDIS_SPIN_LOCK)) == FALSE) {
 		DBGPRINT(RT_DEBUG_ERROR,
 			 ("%s: alloc lock fail!\n", __FUNCTION__));
@@ -4382,7 +4394,7 @@ void RtmpOsSpinLockIrqSave(NDIS_SPIN_LOCK *lock, unsigned long *flags)
 		spin_lock_irqsave((spinlock_t *)(pLock), *flags);
 	else
 		printk("lock> warning! the lock was freed!\n");
-		
+
 }
 
 void RtmpOsSpinUnlockIrqRestore(NDIS_SPIN_LOCK *lock, unsigned long *flags)
@@ -4400,7 +4412,7 @@ void RtmpOsSpinLockIrq(NDIS_SPIN_LOCK *lock)
 {
 	OS_NDIS_SPIN_LOCK *pLock;
 	pLock = (OS_NDIS_SPIN_LOCK *) (lock->pContent);
-	
+
 	if (pLock != NULL)
 		spin_lock_irq((spinlock_t *)(pLock));
 	else
@@ -5262,7 +5274,7 @@ PUCHAR RtmpOsPktHeadBufExtend(PNDIS_PACKET pNetPkt, UINT Len)
 /*
 ========================================================================
 Routine Description:
-	
+
 
 Arguments:
 	pPkt			- the packet
