@@ -31,4 +31,5 @@
 
 include/mcu/mt7650_firmware.h
 tools/bin2h
-
+os/linux/.cache.mk
+os/linux/rt_linux.o.ur-safe
