@@ -1088,7 +1088,13 @@ int RtmpOSFileRead(RTMP_OS_FD osfd, char *pDataPtr, int readLen)
 {
 	/* The object must have a read method */
 	if (osfd->f_op) {
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 		return __vfs_read(osfd, pDataPtr, readLen, &osfd->f_pos);
+#else
+		return kernel_read(osfd, pDataPtr, readLen, &osfd->f_pos);
+#endif /*LINUX_VERSION_CODE */
+
 	} else {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 		DBGPRINT(RT_DEBUG_ERROR, ("no file read method\n"));
@@ -1956,7 +1962,11 @@ VOID RtmpDrvAllMacPrint(
 				sprintf(msg, "0x%04X = 0x%08X\n", macAddr, macValue);
 
 				/* write data to file */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 				__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
+#else
+				kernel_write(file_w, msg, strlen(msg), &file_w->f_pos);
+#endif /*LINUX_VERSION_CODE */
 
 				printk("%s", msg);
 				macAddr += AddrStep;
@@ -2006,7 +2016,12 @@ VOID RtmpDrvAllE2PPrint(
 				sprintf(msg, "%08x = %04x\n", eepAddr, eepValue);
 
 				/* write data to file */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 				__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
+#else
+				kernel_write(file_w, msg, strlen(msg), &file_w->f_pos);
+#endif /*LINUX_VERSION_CODE */
 
 				printk("%s", msg);
 				eepAddr += AddrStep;
@@ -2045,7 +2060,13 @@ VOID RtmpDrvAllRFPrint(
 		if (file_w->f_op) {
 			file_w->f_pos = 0;
 			/* write data to file */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 			__vfs_write(file_w, (const char *) pBuf, BufLen, &file_w->f_pos);
+#else
+			kernel_write(file_w, (const char *) pBuf, BufLen, &file_w->f_pos);
+#endif /*LINUX_VERSION_CODE */
+
 		}
 		filp_close(file_w, NULL);
 	}
